@@ -1,0 +1,60 @@
+name: minimal
+description: One region, three technologies, two planning years.
+years:
+- 2025
+- 2035
+horizon_end: 2044
+discount_rate: 0.06
+representative_days: 3
+hours_per_day: 4
+regions:
+- name: grid
+  demand_twh:
+    '2025': 40
+    '2035': 52
+fuels:
+  gas:
+    price: 32
+    co2: 0.202
+technologies:
+- name: ccgt
+  kind: thermal
+  capex: 950
+  fom: 25
+  vom: 3
+  efficiency: 0.58
+  fuel: gas
+  lifetime: 25
+  availability: 0.92
+  existing:
+    grid: 3000
+- name: solar
+  kind: vre
+  capex: 700
+  fom: 14
+  profile: solar
+  lifetime: 25
+  renewable: true
+  max_total_capacity: 20000
+- name: wind
+  kind: vre
+  capex: 1500
+  fom: 40
+  profile: wind_onshore
+  lifetime: 25
+  renewable: true
+  max_total_capacity: 8000
+storage:
+- name: battery
+  capex_power: 130
+  capex_energy: 190
+  fom: 7
+  lifetime: 15
+  min_duration: 2
+  max_duration: 6
+policy:
+  reserve_margin: 0.15
+  voll: 5000
+  carbon_price:
+    '2025': 25
+    '2035': 90

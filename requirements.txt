@@ -1,0 +1,7 @@
+# The core model runs on the standard library alone.
+# Everything below is optional; install what you need.
+
+scipy>=1.9      # HiGHS backend: two orders of magnitude faster on large models
+numpy>=1.22     # vectorised pivots in the built-in simplex (pulled in by scipy)
+pyyaml>=5.4     # read .yaml scenario files (JSON always works without it)
+pulp>=2.7       # alternative CBC backend, used for cross-checking
