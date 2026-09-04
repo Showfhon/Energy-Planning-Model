@@ -86,6 +86,86 @@ class TestReporting(unittest.TestCase):
         self.assertNotIn("<script", page)
 
 
+class TestNoThirdPartyPackages(unittest.TestCase):
+    """The README promises the model runs on the standard library alone.
+
+    This runs a full solve-and-report cycle in a subprocess where numpy,
+    scipy, pulp and pyyaml are all blocked at import time, so the promise
+    cannot quietly rot.
+    """
+
+    SCRIPT = """
+import sys
+
+BLOCKED = {"numpy", "scipy", "pulp", "yaml", "pandas", "matplotlib"}
+
+
+class Blocker:
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in BLOCKED:
+            raise ImportError("blocked for this test: " + name)
+        return None
+
+
+sys.meta_path.insert(0, Blocker())
+
+import os
+import tempfile
+
+from energyplan import CapacityExpansionModel, load_scenario, available_solvers
+from energyplan.examples import get_example
+from energyplan.report import html_report, text_report, write_csv, write_json
+
+assert available_solvers() == ["simplex"], available_solvers()
+
+spec = get_example("minimal")
+spec["representative_days"], spec["hours_per_day"] = 3, 4
+result = CapacityExpansionModel(load_scenario(spec)).solve()
+assert result.optimal, result.status
+assert result.solution.solver == "simplex"
+assert max(result.audit().values()) < 1e-9, result.audit()
+assert "All checks pass." in text_report(result)
+
+with tempfile.TemporaryDirectory() as directory:
+    html_report(result, os.path.join(directory, "p.html"))
+    write_csv(result, directory)
+    write_json(result, os.path.join(directory, "p.json"))
+
+print("OK", result.objective)
+"""
+
+    def test_full_cycle_without_any_dependency(self):
+        import subprocess
+        import sys
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env = dict(os.environ, PYTHONPATH=root)
+        finished = subprocess.run(
+            [sys.executable, "-c", self.SCRIPT],
+            capture_output=True, text=True, env=env, cwd=root, timeout=300,
+        )
+        self.assertEqual(
+            finished.returncode, 0,
+            f"pure-Python run failed:\n{finished.stdout}\n{finished.stderr}",
+        )
+        self.assertIn("OK", finished.stdout)
+
+    def test_the_pure_python_answer_matches_the_fast_backend(self):
+        from energyplan.solvers import available_solvers as backends
+
+        if "highs" not in backends():
+            self.skipTest("HiGHS not installed")
+        spec = get_example("minimal")
+        spec["representative_days"], spec["hours_per_day"] = 3, 4
+        scenario = load_scenario(spec)
+        a = CapacityExpansionModel(scenario).solve(solver="simplex")
+        b = CapacityExpansionModel(scenario).solve(solver="highs")
+        self.assertLess(
+            abs(a.objective - b.objective) / abs(b.objective), 1e-9,
+            f"{a.objective} vs {b.objective}",
+        )
+
+
 class TestStudyHelpers(unittest.TestCase):
     def test_override_by_name_and_multiplier(self):
         spec = get_example("minimal")
